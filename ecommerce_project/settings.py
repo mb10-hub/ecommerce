@@ -43,10 +43,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
     'django.contrib.sites',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
+    'crispy_forms',
+    
     'core',
 ]
 
@@ -139,6 +142,7 @@ AUTHENTICATION_BACKENDS = [
     'allauth.account.auth_backends.AuthenticationBackend',
 ]
 SITE_ID = 1
+LOGIN_REDIRECT_URL = '/'
 
 #for rn
 ACCOUNT_EMAIL_VERIFICATION = 'none'
@@ -146,3 +150,7 @@ ACCOUNT_EMAIL_VERIFICATION = 'none'
 #for rn login stuff
 # SESSION_COOKIE_SECURE = False
 # CSRF_COOKIE_SECURE = False
+
+# CRISPY FORMS 
+
+CRISPY_TEMPLATE_PACK = 'bootstrap4'
