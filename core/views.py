@@ -4,7 +4,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.generic import ListView, DetailView, View
-from .models import Item, Order, OrderItem
+from .models import Item, Order, OrderItem, BillingAddress
+from .forms import CheckoutForm
 from django.utils import timezone
 
 def item_list(request):
@@ -22,9 +23,51 @@ def product_page(request):
     }
     return render(request, "product-page.html", context)
 
-def checkout_page(request):
-    context = {}
-    return render(request, "checkout-page.html", context)
+class CheckoutView(View):
+    def get(self, *args, **kwargs):
+        form = CheckoutForm()
+        context = {
+            'form': form
+
+        }
+        return render(self.request, "checkout-page.html", context)
+    
+    def post(self, *args, **kwargs):
+        form = CheckoutForm(self.request.POST or None)
+        try:
+            order = Order.objects.get(user=self.request.user, ordered=False)
+
+            if form.is_valid():
+                street_address = form.cleaned_data.get('street_address')  
+                appartment_address = form.cleaned_data.get('appartment_address')
+                country = form.cleaned_data.get('country')
+                zip = form.cleaned_data.get('zip')
+                # TODO: add functionality to the commented out
+                # same_shipping_address = form.cleaned_data.get('same_billing_address')
+                # save_info = form.cleaned_data.get('save_info')
+                payment_option = form.cleaned_data.get('payment_option')
+
+                billing_address = BillingAddress(
+                user = user.request.user,
+                street_address = street_address,
+                apartment_address = appartment_address,
+                country = country,
+                zip = zip
+                )
+                billing_address.save()
+                order.billing_address = billing_address
+                order.save()
+                #TODO: add redirect to the selected payment option 
+
+                return redirect('core:checkout-page')
+            messages.warning(self.request, "Failed checkout")
+            return redirect('core:checkout-page')
+
+
+        except ObjectDoesNotExist:
+            messages.error(self.request, "You do not have an active order")
+            return redirect("core:order-summary")
+
 
 class HomeView(ListView):
     model = Item
