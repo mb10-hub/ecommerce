@@ -1,11 +1,44 @@
 from django.contrib import admin
-from .models import Item, OrderItem, Order, Payment, Coupon
+from .models import Item, OrderItem, Order, Payment, Coupon, Refund
+
+
+def make_refund_accepted(ModelAdmin, request, queryset):
+        queryset.update(refund_request=False, refund_granted=True)
+
+make_refund_accepted.short_description = 'grant refund'
 
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ['user', 'ordered']
+    list_display = ['user',
+                    'ordered',
+                    'being_delivered',
+                    'received',
+                    'refund_request',
+                    'refund_granted',
+                    'billing_address',
+                   'payment',
+                   'coupon']
+            
+    list_display_links = ['user',
+                   'billing_address',
+                   'payment',
+                   'coupon']
+
+    list_filter = ['user',
+                   'ordered',
+                   'being_delivered',
+                   'received',
+                   'refund_request',
+                   'refund_granted']
+    search_fields = [
+        'user__username', 
+        'ref_code'
+    ]
+
+    actions = [make_refund_accepted]
 
 admin.site.register(Item)
 admin.site.register(OrderItem)
 admin.site.register(Order, OrderAdmin)
 admin.site.register(Payment)
 admin.site.register(Coupon)
+admin.site.register(Refund)

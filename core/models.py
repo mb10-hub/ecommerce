@@ -73,6 +73,7 @@ class OrderItem(models.Model):
 
 class Order(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    ref_code = models.CharField(max_length=20)
     items = models.ManyToManyField(OrderItem)
     start_date = models.DateTimeField(auto_now_add=True)
     ordered_date = models.DateTimeField()
@@ -86,6 +87,21 @@ class Order(models.Model):
     coupon = models.ForeignKey(
         'Coupon', on_delete=models.SET_NULL, blank=True, null=True
     )
+    being_delivered = models.BooleanField(default=False)
+    received = models.BooleanField(default=False)
+    refund_request = models.BooleanField(default=False)
+    refund_granted = models.BooleanField(default=False)
+    
+    '''
+    1. Item added to cart
+    2. adding info for customer
+    (failed checkout)
+    3.payment
+    (pre-processing, processing, packaging)
+    4.Being delivered
+    5.Recieved
+    6.Refunds
+    '''
 
     def __str__(self):
         return self.user.username
@@ -95,7 +111,8 @@ class Order(models.Model):
         for order_item in self.items.all():
             total += order_item.get_final_price()
 
-        total -= self.coupon.amount
+        if self.coupon:
+            total -= self.coupon.amount
         
         return total
 
@@ -125,4 +142,11 @@ class Coupon(models.Model):
     def __str__(self):
         return self.code
 
+class Refund(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE)
+    reason = models.TextField()
+    accepted = models.BooleanField(default=False)
+    email = models.EmailField()
 
+    def __str__(self):
+        return f"{self.pk}"
