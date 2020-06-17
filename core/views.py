@@ -5,8 +5,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.generic import ListView, DetailView, View
-from .models import Item, Order, OrderItem, BillingAddress, Payment
-from .forms import CheckoutForm
+from .models import Item, Order, OrderItem, BillingAddress, Payment, Coupon
+from .forms import CheckoutForm, CouponForm
 from django.utils import timezone
 
 import stripe
@@ -34,12 +34,22 @@ def product_page(request):
 
 class CheckoutView(View):
     def get(self, *args, **kwargs):
-        form = CheckoutForm()
-        context = {
-            'form': form
+        try:
+            order = Order.objects.get(user=self.request.user, ordered=False)
+            form = CheckoutForm()
+            context = {
+                'form': form, 
+                'couponform': CouponForm(),
+                'order': order, 
+                'DISPLAY_COUPON__FORM': True
 
-        }
-        return render(self.request, "checkout-page.html", context)
+            }
+            return render(self.request, "checkout-page.html", context)
+
+        except ObjectDoesNotExist:
+            messages.info(self.request, "You do not have an active order")
+            return redirect("core:checkout")
+
     
     def post(self, *args, **kwargs):
         form = CheckoutForm(self.request.POST or None)
@@ -76,7 +86,7 @@ class CheckoutView(View):
                     return redirect('core:checkout-page')
 
         except ObjectDoesNotExist:
-            messages.error(self.request, "You do not have an active order")
+            messages.warning(self.request, "You do not have an active order")
             return redirect("core:order-summary")
 
 
@@ -84,11 +94,18 @@ class PaymentView(View):
     def get(self, *args, **kwargs):
         #order
         order = Order.objects.get(user=self.request.user, ordered=False)
-        context = {
-            'order':order
-        }
+        if order.billing_address:
 
-        return render(self.request, "payment-page.html", context)
+            context = {
+                'order':order ,
+                'DISPLAY_COUPON__FORM': False
+            }
+            return render(self.request, "payment-page.html", context)
+
+        else:
+            messages.warning(self.request, "You do not have a billing address")
+            return redirect("core:checkout-page")
+
     
     def post(self, *args, **kwargs):
         order = Order.objects.get(user=self.request.user, ordered=False)
@@ -110,6 +127,12 @@ class PaymentView(View):
             payment.save()
 
             #assign the payment with the order
+            order_items = order.items.all()
+            order_items.update(ordered=True)
+            for item in order_items:
+                item.save()
+
+
             order.ordered = True
             order.payment = payment
             order.save()
@@ -279,3 +302,28 @@ def remove_single_from_cart(request, slug):
     else:
         messages.info(request, "You dont have an active order.")
         return redirect("core:product-page", slug=slug)
+
+def get_coupon(request, code):
+    try:
+        coupon = Coupon.objects.get(code=code)
+        return coupon
+    except ObjectDoesNotExist:
+        messages.info(request, "This coupon does not exist")
+        return redirect("core:checkout-page")
+
+
+class AddCouponView(View):
+
+    def post(self, *args, **kwargs):
+        form = CouponForm(request.POST or None)
+        if form.is_valid():
+            try:
+                code = form.cleaned_data.get('code')
+                order = Order.objects.get(user=self.request.user, ordered=False)
+                order.coupon = get_coupon(self.request, code)
+                order.save()
+                messages.success(self.request, "Successfully added this coupon")
+                return redirect("core:checkout-page")
+            except ObjectDoesNotExist:
+                messages.info(self.request, "You do not have an active order")
+                return redirect("core:checkout")

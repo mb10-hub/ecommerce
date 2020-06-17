@@ -1,1 +1,5 @@
-/ecommerce_project/settings.py
+*.pyc
+__pycache__/
+media_root
+static_root
+env
